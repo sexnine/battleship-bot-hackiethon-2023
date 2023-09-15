@@ -116,7 +116,7 @@ def weight_adjacent_cells(probability_table: List[List[int]], board: Board):
 
         print(coords_to_check)
 
-        coords_to_apply_weight_to = [x for x in coords_to_check if x.is_valid() and not board.get_cell(x).checked]
+        coords_to_apply_weight_to = [x for x in coords_to_check if x.is_valid() and not board.get_cell(x).checked and probability_table[x.y][x.x] != 0]
 
         print(coords_to_apply_weight_to)
 
