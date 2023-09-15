@@ -116,31 +116,54 @@ def get_next_move(game_state: GameState) -> Coordinate:
 
     print(coordinate_list)
 
-    pass
+    return coordinate_list[0][0]
 
 
-def ShipLogic(round_number: int, ship_map, enemy_hp: int, hp: int, shot_sequence: List[tuple[int, int]],
+def ShipLogic(round_number: int, ship_map, enemy_hp: int, hp: int,  # Why not snake_case? :(
+              shot_sequence: List[tuple[int, int]],
               did_previous_shot_hit: bool, storage: List) -> tuple[tuple[int, int], List]:
-    game_state = None
+    try:
+        game_state = None
 
-    if len(storage) > 0:
-        game_state = storage[0]
-    else:
-        game_state = GameState()
-        storage.append(game_state)
+        if len(storage) > 0 and storage[0] is not None:
+            game_state = storage[0]
+        else:
+            game_state = GameState()
+            storage.append(game_state)
 
-    if len(shot_sequence) > 0:
-        register_latest_move(game_state, shot_sequence, did_previous_shot_hit)
+        if len(shot_sequence) > 0:
+            register_latest_move(game_state, shot_sequence, did_previous_shot_hit)
 
-    move = get_next_move(game_state)
+        move = get_next_move(game_state)
 
-    return move.to_hm_style(), storage
+        return move.to_hm_style(), storage
+    except Exception:
+        return (1, 1), storage  # Will prompt a random move if an unexpected error occurs
 
 
 def main():
     game_state = GameState()
 
-    get_next_move(game_state)
+    while True:
+        move = get_next_move(game_state)
+
+        print(f"\u001b[31m-> {move}\u001b[0m")
+
+        user_input = input("Hit (h) / Miss (m) / Quit (q): ")
+        was_hit = None
+
+        match user_input.strip().lower():
+            case "h":
+                was_hit = True
+            case "m":
+                was_hit = False
+            case "q":
+                exit(0)
+            case other:
+                print(f"{other} not recognised, please try again.")
+                continue
+
+        game_state.board.get_cell(move).set_checked(was_hit)
 
 
 if __name__ == "__main__":
