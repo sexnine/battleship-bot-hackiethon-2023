@@ -177,12 +177,52 @@ def get_grouped_coordinates(game_state: GameState, coordinate: Coordinate, axis:
     return ret
 
 
+def can_any_ship_fit_with_group(game_state: GameState, group_coords: set[Coordinate], ship_size_to_check: int,
+                                axis: Literal["x", "y"]) -> bool:
+    group_coords_length = len(group_coords)
+    sorted_group_coords = list(group_coords)
+    sorted_group_coords.sort(key=lambda x: x.x if axis == "x" else x.y)
+
+    left_bound_space = 0
+    right_bound_space = 0
+    left_bound_hit = False
+    right_bound_hit = False
+
+    for i in range(1, ship_size_to_check - group_coords_length):
+        if axis == "x":
+            if not left_bound_hit and not game_state.board.get_cell(
+                    Coordinate(sorted_group_coords[0].x - i, sorted_group_coords[0].y)).checked:
+                left_bound_space += 1
+            else:
+                left_bound_hit = True
+
+            if not right_bound_hit and not game_state.board.get_cell(
+                    Coordinate(sorted_group_coords[0].x + i, sorted_group_coords[0].y)).checked:
+                right_bound_space += 1
+            else:
+                right_bound_hit = True
+        else:
+            if not left_bound_hit and not game_state.board.get_cell(
+                    Coordinate(sorted_group_coords[0].x, sorted_group_coords[0].y - i)).checked:
+                left_bound_space += 1
+            else:
+                left_bound_hit = True
+
+            if not right_bound_hit and not game_state.board.get_cell(
+                    Coordinate(sorted_group_coords[0].x, sorted_group_coords[0].y + i)).checked:
+                right_bound_space += 1
+            else:
+                right_bound_hit = True
+
+    return left_bound_space + right_bound_space + group_coords_length > ship_size_to_check
+
+
 def confirm_ships(game_state: GameState):
     all_coordinates = [Coordinate(x, y) for x in range(BOARD_SIZE) for y in range(BOARD_SIZE)]
     hit_coords = [x for x in all_coordinates if
                   game_state.board.get_cell(x).hit and not game_state.board.get_cell(x).confirmed_ship]
 
-    groups = []
+    groups: List[tuple[Literal["x", "y"], set[Coordinate]]] = []
 
     skip_coords_x = []
     skip_coords_y = []
@@ -191,15 +231,23 @@ def confirm_ships(game_state: GameState):
         if coordinate not in skip_coords_x:
             bla = get_grouped_coordinates(game_state, coordinate, "x")
             skip_coords_x += list(bla)
-            groups.append(bla)
+            groups.append(("x", bla))
         if coordinate not in skip_coords_y:
             bla = get_grouped_coordinates(game_state, coordinate, "y")
             skip_coords_y += list(bla)
-            groups.append(bla)
+            groups.append(("y", bla))
 
-    groups = [x for x in groups if len(x) > 1]
+    groups = [x for x in groups if len(x[1]) > 1]
 
     print("groups: ", groups)
+
+    for axis, group in groups:
+        cond1 = can_any_ship_fit_with_group(game_state, group, min(len(group) + 1, max(game_state.remaining_ship_sizes)), axis)
+        cond2 = False  # TODO
+
+        if cond1 and cond2:
+            # TODO: confirm ship
+            print("confirmed ship: ", group)
 
     # TODO: finish
 
