@@ -21,6 +21,9 @@ class Coordinate:
     def to_hm_style(self):
         return self.x + 1, self.y + 1
 
+    def is_valid(self):
+        return 0 <= self.x < BOARD_SIZE and 0 <= self.y < BOARD_SIZE
+
     def __str__(self):
         return f"{chr(65 + self.x)}{self.y + 1}"
 
@@ -98,6 +101,29 @@ def get_probability_table(board: Board, ship_sizes_to_check: List[int]) -> List[
     return probability_table
 
 
+def weight_adjacent_cells(probability_table: List[List[int]], board: Board):
+    coordinate_list = probability_table_to_sorted_coordinate_list(probability_table)
+    coordinate_list = [x for x in coordinate_list if board.get_cell(x[0]).hit]
+    print(coordinate_list)
+
+    for coordinate, _ in coordinate_list:
+        coords_to_check = [
+            Coordinate(coordinate.x - 1, coordinate.y),
+            Coordinate(coordinate.x + 1, coordinate.y),
+            Coordinate(coordinate.x, coordinate.y - 1),
+            Coordinate(coordinate.x, coordinate.y + 1),
+        ]
+
+        print(coords_to_check)
+
+        coords_to_apply_weight_to = [x for x in coords_to_check if x.is_valid() and not board.get_cell(x).checked]
+
+        print(coords_to_apply_weight_to)
+
+        for coord in coords_to_apply_weight_to:
+            probability_table[coord.y][coord.x] += 20
+
+
 def probability_table_to_sorted_coordinate_list(probability_table: List[List[int]]) -> List[tuple[Coordinate, int]]:
     coordinate_list = []
 
@@ -112,6 +138,7 @@ def probability_table_to_sorted_coordinate_list(probability_table: List[List[int
 
 def get_next_move(game_state: GameState) -> Coordinate:
     probability_table = get_probability_table(game_state.board, SHIP_SIZES)
+    weight_adjacent_cells(probability_table, game_state.board)
     coordinate_list = probability_table_to_sorted_coordinate_list(probability_table)
 
     print(coordinate_list)
