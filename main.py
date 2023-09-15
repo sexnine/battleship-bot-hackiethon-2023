@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union, Literal
 
 SHIP_SIZES = [5, 3, 3, 2, 2]
 BOARD_SIZE = 10
@@ -7,6 +7,7 @@ BOARD_SIZE = 10
 class GameState:
     def __init__(self):
         self.board = Board()
+        self.remaining_ship_sizes = SHIP_SIZES.copy()
 
 
 class Coordinate:
@@ -24,6 +25,12 @@ class Coordinate:
     def is_valid(self):
         return 0 <= self.x < BOARD_SIZE and 0 <= self.y < BOARD_SIZE
 
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __hash__(self):
+        return hash((self.x, self.y))
+
     def __str__(self):
         return f"{chr(65 + self.x)}{self.y + 1}"
 
@@ -35,6 +42,7 @@ class BoardCell:
     def __init__(self):
         self.checked = False
         self.hit = False
+        self.confirmed_ship = False
 
     def set_checked(self, hit: bool = False):
         self.checked = True
@@ -67,7 +75,7 @@ def set_probability(board: Board, probability_table: List[List[int]], ship_size:
         else:
             cell = board.get_cell(Coordinate(x + i, y))
 
-        if cell.checked and not cell.hit:
+        if cell.checked and (not cell.hit or cell.confirmed_ship):
             is_possible_placement = False
             break
 
@@ -101,24 +109,42 @@ def get_probability_table(board: Board, ship_sizes_to_check: List[int]) -> List[
     return probability_table
 
 
-def weight_adjacent_cells(probability_table: List[List[int]], board: Board):
-    coordinate_list = probability_table_to_sorted_coordinate_list(probability_table)
-    coordinate_list = [x for x in coordinate_list if board.get_cell(x[0]).hit]
-    print(coordinate_list)
+def adjacent_coords(coordinate: Coordinate, filter_valid: bool = False, x_axis: bool = True, y_axis: bool = True) -> \
+        List[Coordinate]:
+    coords = []
 
-    for coordinate, _ in coordinate_list:
-        coords_to_check = [
+    if x_axis:
+        coords += [
             Coordinate(coordinate.x - 1, coordinate.y),
             Coordinate(coordinate.x + 1, coordinate.y),
+        ]
+    if y_axis:
+        coords += [
             Coordinate(coordinate.x, coordinate.y - 1),
             Coordinate(coordinate.x, coordinate.y + 1),
         ]
 
-        print(coords_to_check)
+    if filter_valid:
+        coords = [x for x in coords if x.is_valid()]
 
-        coords_to_apply_weight_to = [x for x in coords_to_check if x.is_valid() and not board.get_cell(x).checked and probability_table[x.y][x.x] != 0]
+    return coords
 
-        print(coords_to_apply_weight_to)
+
+def weight_adjacent_cells(probability_table: List[List[int]], board: Board):
+    coordinate_list = probability_table_to_sorted_coordinate_list(probability_table)
+    coordinate_list = [x for x in coordinate_list if board.get_cell(x[0]).hit]
+    print("weight_adjacent_cells coordinate_list: ", coordinate_list)
+
+    for coordinate, _ in coordinate_list:
+        coords_to_check = adjacent_coords(coordinate, True)
+
+        print("coords_to_check: ", coords_to_check)
+
+        coords_to_apply_weight_to = [x for x in coords_to_check if
+                                     not board.get_cell(x).checked and probability_table[x.y][
+                                         x.x] != 0]
+
+        print("coords_to_apply_weight_to: ", coords_to_apply_weight_to)
 
         for coord in coords_to_apply_weight_to:
             probability_table[coord.y][coord.x] += 20
@@ -136,8 +162,52 @@ def probability_table_to_sorted_coordinate_list(probability_table: List[List[int
     return coordinate_list
 
 
+def get_grouped_coordinates(game_state: GameState, coordinate: Coordinate, axis: Literal["x", "y"],
+                            ignore_list: set[Coordinate] = set()) -> set[Coordinate]:
+    ret = {coordinate}
+
+    adjacent = adjacent_coords(coordinate, True, axis == "x", axis == "y")
+    # print(adjacent)
+    adjacent = [x for x in adjacent if x not in ignore_list and game_state.board.get_cell(x).hit]
+    # print(adjacent)
+
+    for coord in adjacent:
+        ret = ret.union(get_grouped_coordinates(game_state, coord, axis, ret))
+
+    return ret
+
+
+def confirm_ships(game_state: GameState):
+    all_coordinates = [Coordinate(x, y) for x in range(BOARD_SIZE) for y in range(BOARD_SIZE)]
+    hit_coords = [x for x in all_coordinates if
+                  game_state.board.get_cell(x).hit and not game_state.board.get_cell(x).confirmed_ship]
+
+    groups = []
+
+    skip_coords_x = []
+    skip_coords_y = []
+
+    for coordinate in hit_coords:
+        if coordinate not in skip_coords_x:
+            bla = get_grouped_coordinates(game_state, coordinate, "x")
+            skip_coords_x += list(bla)
+            groups.append(bla)
+        if coordinate not in skip_coords_y:
+            bla = get_grouped_coordinates(game_state, coordinate, "y")
+            skip_coords_y += list(bla)
+            groups.append(bla)
+
+    groups = [x for x in groups if len(x) > 1]
+
+    print("groups: ", groups)
+
+    # TODO: finish
+
+
 def get_next_move(game_state: GameState) -> Coordinate:
-    probability_table = get_probability_table(game_state.board, SHIP_SIZES)
+    confirm_ships(game_state)
+
+    probability_table = get_probability_table(game_state.board, game_state.remaining_ship_sizes)
     weight_adjacent_cells(probability_table, game_state.board)
     coordinate_list = probability_table_to_sorted_coordinate_list(probability_table)
 
