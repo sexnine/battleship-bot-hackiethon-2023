@@ -1,4 +1,6 @@
-from typing import List, Union, Literal
+import functools
+import itertools
+from typing import List, Union, Literal, Optional
 
 SHIP_SIZES = [5, 3, 3, 2, 2]
 BOARD_SIZE = 10
@@ -217,6 +219,64 @@ def can_any_ship_fit_with_group(game_state: GameState, group_coords: set[Coordin
     return left_bound_space + right_bound_space + group_coords_length > ship_size_to_check
 
 
+def get_possible_placements_including(board: Board, ship_size: int, group_coords: set[Coordinate], x: int, y: int,
+                                      inverted: bool = False) -> Optional[set[Coordinate]]:
+    uses_group_coord = False
+    is_possible_placement = True
+    cords = set()
+
+    for i in range(ship_size):
+        if inverted:
+            cord = Coordinate(x, y + i)
+        else:
+            cord = Coordinate(x + i, y)
+
+        if not uses_group_coord and cord in group_coords:
+            uses_group_coord = True
+
+        cords.add(cord)
+        cell = board.get_cell(cord)
+
+        if cell.checked and (not cell.hit or cell.confirmed_ship):
+            is_possible_placement = False
+            break
+
+    if is_possible_placement and uses_group_coord and not cords.issubset(group_coords):
+        return cords
+
+    return None
+
+
+def possible_combination_utilizing_all_group_cells(game_state: GameState, group_coords: set[Coordinate],
+                                                   ship_size_to_check: int) -> bool:
+    placements = []
+    group_size = len(group_coords)
+
+    for ship_size in set(game_state.remaining_ship_sizes):
+        coords_to_check = list(range(BOARD_SIZE - ship_size + 1))
+
+        for x in coords_to_check:
+            for y in range(BOARD_SIZE):
+                kill_me1 = get_possible_placements_including(game_state.board, ship_size, group_coords, x, y)
+                kill_me2 = get_possible_placements_including(game_state.board, ship_size, group_coords, x, y, True)
+
+                if kill_me1:
+                    placements.append(kill_me1)
+                if kill_me2:
+                    placements.append(kill_me2)
+
+    combinations = []
+    for i in range(2, group_size):
+        combinations += list(itertools.combinations(placements, i))
+
+    for combination in combinations:
+        combination_length = functools.reduce(lambda count, l: count + len(l), combination, 0)
+        xd = len(set.union(*combination))
+
+        if combination_length == xd:
+            return True
+
+
 def confirm_ships(game_state: GameState):
     all_coordinates = [Coordinate(x, y) for x in range(BOARD_SIZE) for y in range(BOARD_SIZE)]
     hit_coords = [x for x in all_coordinates if
@@ -242,8 +302,10 @@ def confirm_ships(game_state: GameState):
     print("groups: ", groups)
 
     for axis, group in groups:
-        cond1 = can_any_ship_fit_with_group(game_state, group, min(len(group) + 1, max(game_state.remaining_ship_sizes)), axis)
-        cond2 = False  # TODO
+        cond1 = can_any_ship_fit_with_group(game_state, group,
+                                            min(len(group) + 1, max(game_state.remaining_ship_sizes)), axis)
+        cond2 = not possible_combination_utilizing_all_group_cells(game_state, group, min(len(group) + 1,
+                                                                                          max(game_state.remaining_ship_sizes)))
 
         if cond1 and cond2:
             # TODO: confirm ship
