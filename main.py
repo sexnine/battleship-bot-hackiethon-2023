@@ -52,7 +52,7 @@ def get_next_move(game_state: GameState) -> Coordinate:
     pass
 
 
-def ShipLogic(round: int, map, enemy_hp: int, hp: int, shot_sequence: List[(int, int)],
+def ShipLogic(round_number: int, ship_map, enemy_hp: int, hp: int, shot_sequence: List[(int, int)],
               did_previous_shot_hit: bool, storage: List) -> ((int, int), List):
     game_state = None
 
