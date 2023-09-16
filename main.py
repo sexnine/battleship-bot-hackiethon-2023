@@ -10,6 +10,7 @@ class GameState:
     def __init__(self):
         self.board = Board()
         self.remaining_ship_sizes = SHIP_SIZES.copy()
+        self.pending_remove_ship_sizes = []
 
 
 class Coordinate:
@@ -134,7 +135,8 @@ def adjacent_coords(coordinate: Coordinate, filter_valid: bool = False, x_axis: 
 
 def weight_adjacent_cells(probability_table: List[List[int]], board: Board):
     coordinate_list = probability_table_to_sorted_coordinate_list(probability_table)
-    coordinate_list = [x for x in coordinate_list if board.get_cell(x[0]).hit and not board.get_cell(x[0]).confirmed_ship]
+    coordinate_list = [x for x in coordinate_list if
+                       board.get_cell(x[0]).hit and not board.get_cell(x[0]).confirmed_ship]
     print("weight_adjacent_cells coordinate_list: ", coordinate_list)
 
     for coordinate, _ in coordinate_list:
@@ -250,8 +252,7 @@ def get_possible_placements_including(board: Board, ship_size: int, group_coords
     return None
 
 
-def possible_combination_utilizing_all_group_cells(game_state: GameState, group_coords: set[Coordinate],
-                                                   ship_size_to_check: int) -> bool:
+def possible_combination_utilizing_all_group_cells(game_state: GameState, group_coords: set[Coordinate]) -> bool:
     placements = []
     group_size = len(group_coords)
 
@@ -320,8 +321,7 @@ def confirm_ships(game_state: GameState):
                                                     min_ship_size,
                                                     axis)
 
-        cond2 = not possible_combination_utilizing_all_group_cells(game_state, group,
-                                                                   min(len(group) + 1, max(game_state.remaining_ship_sizes)))
+        cond2 = not possible_combination_utilizing_all_group_cells(game_state, group)
         print("cond1: ", cond1, " | cond2: ", cond2)
 
         if cond1 and cond2:
@@ -329,14 +329,26 @@ def confirm_ships(game_state: GameState):
 
             group_size = len(group)
 
-            if group_size in [2, 3]:
-                game_state.remaining_ship_sizes.remove(group_size)
-            if group_size == 4:
-                game_state.remaining_ship_sizes.remove(2)
-                game_state.remaining_ship_sizes.remove(2)
-            # Cant remove 5-size yet because it could be made from a 3 and 2
-            # Could solve with a pending_remove_ship_sizes and remove from remaining_ship_sizes
-            # when 2x2 or 2x3 is removed  TODO
+            intersects_with_other_groups = False
+
+            for _, other_group in groups:
+                if len(other_group.intersection(group)) != 0:
+                    intersects_with_other_groups = True
+                    break
+
+            # Kinda unlikely to intersect (i think) but just a precautionary so I don't screw the whole thing up lmao
+            if not intersects_with_other_groups:
+                if group_size in [2, 3]:
+                    game_state.remaining_ship_sizes.remove(group_size)
+                if group_size == 4:
+                    game_state.remaining_ship_sizes.remove(2)
+                    game_state.remaining_ship_sizes.remove(2)
+                if group_size == 5:
+                    game_state.pending_remove_ship_sizes.append(5)
+
+            if game_state.remaining_ship_sizes.count(2) == 0 or game_state.remaining_ship_sizes.count(
+                    3) == 0 and 5 in game_state.pending_remove_ship_sizes:
+                game_state.remaining_ship_sizes.remove(5)
 
             for coord in group:
                 game_state.board.get_cell(coord).confirmed_ship = True
