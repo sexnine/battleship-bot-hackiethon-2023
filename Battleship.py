@@ -1,3 +1,5 @@
+# hi, this code isnt great, just sayin, its in no way a good example to follow
+
 import functools
 import itertools
 from typing import List, Union, Literal, Optional
