@@ -192,26 +192,29 @@ def can_any_ship_fit_with_group(game_state: GameState, group_coords: set[Coordin
 
     for i in range(1, ship_size_to_check - group_coords_length + 1):
         if axis == "x":
-            if not left_bound_hit and not game_state.board.get_cell(
-                    Coordinate(sorted_group_coords[0].x - i, sorted_group_coords[0].y)).checked:
+            cord = Coordinate(sorted_group_coords[0].x - i, sorted_group_coords[0].y)
+            if not left_bound_hit and cord.is_valid() and not game_state.board.get_cell(
+                    cord).checked:
                 left_bound_space += 1
             else:
                 left_bound_hit = True
 
-            if not right_bound_hit and not game_state.board.get_cell(
-                    Coordinate(sorted_group_coords[-1].x + i, sorted_group_coords[0].y)).checked:
+            cord = Coordinate(sorted_group_coords[-1].x + i, sorted_group_coords[0].y)
+            if not right_bound_hit and cord.is_valid() and not game_state.board.get_cell(
+                    cord).checked:
                 right_bound_space += 1
             else:
                 right_bound_hit = True
         else:
-            if not left_bound_hit and not game_state.board.get_cell(
-                    Coordinate(sorted_group_coords[0].x, sorted_group_coords[0].y - i)).checked:
+            cord = Coordinate(sorted_group_coords[0].x, sorted_group_coords[0].y - i)
+            if not left_bound_hit and cord.is_valid() and not game_state.board.get_cell(cord).checked:
                 left_bound_space += 1
             else:
                 left_bound_hit = True
 
-            if not right_bound_hit and not game_state.board.get_cell(
-                    Coordinate(sorted_group_coords[0].x, sorted_group_coords[-1].y + i)).checked:
+            cord = Coordinate(sorted_group_coords[0].x, sorted_group_coords[-1].y + i)
+            if not right_bound_hit and cord.is_valid() and not game_state.board.get_cell(
+                    cord).checked:
                 right_bound_space += 1
             else:
                 right_bound_hit = True
@@ -302,6 +305,7 @@ def confirm_ships(game_state: GameState):
             groups.append(("y", bla))
 
     groups = [x for x in groups if len(x[1]) > 1]
+    groups.sort(key=lambda x: len(x[1]), reverse=True)
 
     print("groups: ", groups)
 
@@ -337,15 +341,22 @@ def confirm_ships(game_state: GameState):
             for coord in group:
                 game_state.board.get_cell(coord).confirmed_ship = True
 
+            confirm_ships(game_state)
+            break
+
 
 def get_next_move(game_state: GameState) -> Coordinate:
-    confirm_ships(game_state)
+    try:
+        confirm_ships(game_state)
+    except Exception() as e:
+        print("confirm_ships error: ", e)
 
     probability_table = get_probability_table(game_state.board, game_state.remaining_ship_sizes)
     weight_adjacent_cells(probability_table, game_state.board)
     coordinate_list = probability_table_to_sorted_coordinate_list(probability_table)
 
     print(coordinate_list)
+    print("remaining_ship_sizes: ", game_state.remaining_ship_sizes)
 
     return coordinate_list[0][0]
 
