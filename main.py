@@ -190,7 +190,7 @@ def can_any_ship_fit_with_group(game_state: GameState, group_coords: set[Coordin
     left_bound_hit = False
     right_bound_hit = False
 
-    for i in range(1, ship_size_to_check - group_coords_length):
+    for i in range(1, ship_size_to_check - group_coords_length + 1):
         if axis == "x":
             if not left_bound_hit and not game_state.board.get_cell(
                     Coordinate(sorted_group_coords[0].x - i, sorted_group_coords[0].y)).checked:
@@ -216,7 +216,7 @@ def can_any_ship_fit_with_group(game_state: GameState, group_coords: set[Coordin
             else:
                 right_bound_hit = True
 
-    return left_bound_space + right_bound_space + group_coords_length > ship_size_to_check
+    return left_bound_space + right_bound_space + group_coords_length >= ship_size_to_check
 
 
 def get_possible_placements_including(board: Board, ship_size: int, group_coords: set[Coordinate], x: int, y: int,
@@ -258,7 +258,7 @@ def possible_combination_utilizing_all_group_cells(game_state: GameState, group_
         for x in coords_to_check:
             for y in range(BOARD_SIZE):
                 kill_me1 = get_possible_placements_including(game_state.board, ship_size, group_coords, x, y)
-                kill_me2 = get_possible_placements_including(game_state.board, ship_size, group_coords, x, y, True)
+                kill_me2 = get_possible_placements_including(game_state.board, ship_size, group_coords, y, x, True)
 
                 if kill_me1:
                     placements.append(kill_me1)
@@ -266,15 +266,19 @@ def possible_combination_utilizing_all_group_cells(game_state: GameState, group_
                     placements.append(kill_me2)
 
     combinations = []
-    for i in range(2, group_size):
+    for i in range(2, group_size + 1):
         combinations += list(itertools.combinations(placements, i))
 
     for combination in combinations:
         combination_length = functools.reduce(lambda count, l: count + len(l), combination, 0)
-        xd = len(set.union(*combination))
+        aaa = set.union(*combination)
+        # xd = len()
 
-        if combination_length == xd:
+        if combination_length == len(aaa) and group_coords.issubset(aaa):
+            print("possible_combination: ", combination)
             return True
+
+    return False
 
 
 def confirm_ships(game_state: GameState):
@@ -302,10 +306,11 @@ def confirm_ships(game_state: GameState):
     print("groups: ", groups)
 
     for axis, group in groups:
-        cond1 = can_any_ship_fit_with_group(game_state, group,
-                                            min(len(group) + 1, max(game_state.remaining_ship_sizes)), axis)
-        cond2 = not possible_combination_utilizing_all_group_cells(game_state, group, min(len(group) + 1,
-                                                                                          max(game_state.remaining_ship_sizes)))
+        cond1 = not can_any_ship_fit_with_group(game_state, group,
+                                                min(len(group) + 1, max(game_state.remaining_ship_sizes)), axis)
+        cond2 = not possible_combination_utilizing_all_group_cells(game_state, group,
+                                                                   min(len(group) + 1, max(game_state.remaining_ship_sizes)))
+        print("cond1: ", cond1, " | cond2: ", cond2)
 
         if cond1 and cond2:
             # TODO: confirm ship
