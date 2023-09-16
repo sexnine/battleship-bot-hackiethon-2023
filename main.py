@@ -336,6 +336,8 @@ def confirm_ships(game_state: GameState):
                     intersects_with_other_groups = True
                     break
 
+            print("group ", group, " intersects_with_other_groups: ", intersects_with_other_groups)
+
             # Kinda unlikely to intersect (i think) but just a precautionary so I don't screw the whole thing up lmao
             if not intersects_with_other_groups:
                 if group_size in [2, 3]:
