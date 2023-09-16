@@ -134,7 +134,7 @@ def adjacent_coords(coordinate: Coordinate, filter_valid: bool = False, x_axis: 
 
 def weight_adjacent_cells(probability_table: List[List[int]], board: Board):
     coordinate_list = probability_table_to_sorted_coordinate_list(probability_table)
-    coordinate_list = [x for x in coordinate_list if board.get_cell(x[0]).hit]
+    coordinate_list = [x for x in coordinate_list if board.get_cell(x[0]).hit and not board.get_cell(x[0]).confirmed_ship]
     print("weight_adjacent_cells coordinate_list: ", coordinate_list)
 
     for coordinate, _ in coordinate_list:
@@ -199,7 +199,7 @@ def can_any_ship_fit_with_group(game_state: GameState, group_coords: set[Coordin
                 left_bound_hit = True
 
             if not right_bound_hit and not game_state.board.get_cell(
-                    Coordinate(sorted_group_coords[0].x + i, sorted_group_coords[0].y)).checked:
+                    Coordinate(sorted_group_coords[-1].x + i, sorted_group_coords[0].y)).checked:
                 right_bound_space += 1
             else:
                 right_bound_hit = True
@@ -211,7 +211,7 @@ def can_any_ship_fit_with_group(game_state: GameState, group_coords: set[Coordin
                 left_bound_hit = True
 
             if not right_bound_hit and not game_state.board.get_cell(
-                    Coordinate(sorted_group_coords[0].x, sorted_group_coords[0].y + i)).checked:
+                    Coordinate(sorted_group_coords[0].x, sorted_group_coords[-1].y + i)).checked:
                 right_bound_space += 1
             else:
                 right_bound_hit = True
@@ -306,17 +306,36 @@ def confirm_ships(game_state: GameState):
     print("groups: ", groups)
 
     for axis, group in groups:
-        cond1 = not can_any_ship_fit_with_group(game_state, group,
-                                                min(len(group) + 1, max(game_state.remaining_ship_sizes)), axis)
+        cond1 = None
+        try:
+            min_ship_size = min([x for x in game_state.remaining_ship_sizes if x > len(group)])
+        except ValueError:
+            cond1 = True
+        else:
+            cond1 = not can_any_ship_fit_with_group(game_state, group,
+                                                    min_ship_size,
+                                                    axis)
+
         cond2 = not possible_combination_utilizing_all_group_cells(game_state, group,
                                                                    min(len(group) + 1, max(game_state.remaining_ship_sizes)))
         print("cond1: ", cond1, " | cond2: ", cond2)
 
         if cond1 and cond2:
-            # TODO: confirm ship
             print("confirmed ship: ", group)
 
-    # TODO: finish
+            group_size = len(group)
+
+            if group_size in [2, 3]:
+                game_state.remaining_ship_sizes.remove(group_size)
+            if group_size == 4:
+                game_state.remaining_ship_sizes.remove(2)
+                game_state.remaining_ship_sizes.remove(2)
+            # Cant remove 5-size yet because it could be made from a 3 and 2
+            # Could solve with a pending_remove_ship_sizes and remove from remaining_ship_sizes
+            # when 2x2 or 2x3 is removed  TODO
+
+            for coord in group:
+                game_state.board.get_cell(coord).confirmed_ship = True
 
 
 def get_next_move(game_state: GameState) -> Coordinate:
